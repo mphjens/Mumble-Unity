@@ -241,6 +241,9 @@ namespace Mumble
 
                             Debug.Log("Text message = " + textMessage.Message);
                             Debug.Log("Text actor = " + textMessage.Actor);
+
+                            // TODO: Add get textmessage handler here.
+
                             //Debug.Log("Text channel = " + textMessage.channel_id[0]);
                             //Debug.Log("Text session Length = " + textMessage.Sessions.Length);
                             //Debug.Log("Text Tree Length = " + textMessage.TreeIds.Length);

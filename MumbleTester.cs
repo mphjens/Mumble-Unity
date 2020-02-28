@@ -25,19 +25,25 @@ public class MumbleTester : MonoBehaviour {
     private MumbleClient _mumbleClient;
     public bool ConnectAsyncronously = true;
     public bool SendPosition = false;
-    public string HostName = "1.2.3.4";
-    public int Port = 64738;
-    public string Username = "ExampleUser";
-    public string Password = "1passwordHere!";
-    public string ChannelToJoin = "";
+    //public string HostName = "1.2.3.4";
+    //public int Port = 64738;
+    //public string Username = "ExampleUser";
+    //public string Password = "1passwordHere!";
+    //public string ChannelToJoin = "";
 
 	void Start () {
+#if UNITY_EDITOR
+        //if (DebuggingVariables.EnableEditorIOGraph)
+        //{
+        //    EditorGraph editorGraph = EditorWindow.GetWindow<EditorGraph>();
+        //    editorGraph.Show();
+        //    StartCoroutine(UpdateEditorGraph());
+        //}
+#endif
+    }
 
-        if(HostName == "1.2.3.4")
-        {
-            Debug.LogError("Please set the mumble host name to your mumble server");
-            return;
-        }
+    public void Connect(string HostName, int Port, string Username)
+    {
         Application.runInBackground = true;
         // If SendPosition, we'll send three floats.
         // This is roughly the standard for Mumble, however it seems that
@@ -51,27 +57,20 @@ public class MumbleTester : MonoBehaviour {
             Username += UnityEngine.Random.Range(0, 100f);
 
         if (ConnectAsyncronously)
-            StartCoroutine(ConnectAsync());
+            StartCoroutine(ConnectAsync(Username));
         else
         {
-            _mumbleClient.Connect(Username, Password);
-            if(MyMumbleMic != null)
+            _mumbleClient.Connect(Username, "");
+            if (MyMumbleMic != null)
             {
                 _mumbleClient.AddMumbleMic(MyMumbleMic);
                 if (SendPosition)
                     MyMumbleMic.SetPositionalDataFunction(WritePositionalData);
             }
         }
-
-#if UNITY_EDITOR
-        if (DebuggingVariables.EnableEditorIOGraph)
-        {
-            EditorGraph editorGraph = EditorWindow.GetWindow<EditorGraph>();
-            editorGraph.Show();
-            StartCoroutine(UpdateEditorGraph());
-        }
-#endif
     }
+
+
     /// <summary>
     /// An example of how to serialize the positional data that you're interested in
     /// NOTE: this function, in the current implementation, is called regardless
@@ -94,12 +93,13 @@ public class MumbleTester : MonoBehaviour {
         posDataLength = 3 * sizeof(float);
         // The reverse method is in MumbleExamplePositionDisplay
     }
-    IEnumerator ConnectAsync()
+
+    IEnumerator ConnectAsync(string username)
     {
         while (!_mumbleClient.ReadyToConnect)
             yield return null;
         Debug.Log("Will now connect");
-        _mumbleClient.Connect(Username, Password);
+        _mumbleClient.Connect(username, "");
         yield return null;
         if(MyMumbleMic != null)
         {
@@ -109,6 +109,7 @@ public class MumbleTester : MonoBehaviour {
             MyMumbleMic.OnMicDisconnect += OnMicDisconnected;
         }
     }
+
     private MumbleAudioPlayer CreateMumbleAudioPlayerFromPrefab(string username, uint session)
     {
         // Depending on your use case, you might want to add the prefab to an existing object (like someone's head)
@@ -152,7 +153,7 @@ public class MumbleTester : MonoBehaviour {
                 if(micNames[i] == micToConnect)
                 {
                     Debug.Log("Desired mic reconnected");
-                    MyMumbleMic.MicNumberToUse = i;
+                    MyMumbleMic.InitializeMic(i);
                     MyMumbleMic.StartSendingAudio(_mumbleClient.EncoderSampleRate);
                     yield break;
                 }
@@ -168,56 +169,62 @@ public class MumbleTester : MonoBehaviour {
     }
     IEnumerator UpdateEditorGraph()
     {
-        long numPacketsReceived = 0;
-        long numPacketsSent = 0;
-        long numPacketsLost = 0;
-
-        while (true)
+        if(this._mumbleClient != null)
         {
-            yield return new WaitForSeconds(0.1f);
+            long numPacketsReceived = 0;
+            long numPacketsSent = 0;
+            long numPacketsLost = 0;
 
-            long numSentThisSample = _mumbleClient.NumUDPPacketsSent - numPacketsSent;
-            long numRecvThisSample = _mumbleClient.NumUDPPacketsReceieved - numPacketsReceived;
-            long numLostThisSample = _mumbleClient.NumUDPPacketsLost - numPacketsLost;
+            while (true)
+            {
+                yield return new WaitForSeconds(0.1f);
 
-            Graph.channel[0].Feed(-numSentThisSample);//gray
-            Graph.channel[1].Feed(-numRecvThisSample);//blue
-            Graph.channel[2].Feed(-numLostThisSample);//red
+                long numSentThisSample = _mumbleClient.NumUDPPacketsSent - numPacketsSent;
+                long numRecvThisSample = _mumbleClient.NumUDPPacketsReceieved - numPacketsReceived;
+                long numLostThisSample = _mumbleClient.NumUDPPacketsLost - numPacketsLost;
 
-            numPacketsSent += numSentThisSample;
-            numPacketsReceived += numRecvThisSample;
-            numPacketsLost += numLostThisSample;
+                Graph.channel[0].Feed(-numSentThisSample);//gray
+                Graph.channel[1].Feed(-numRecvThisSample);//blue
+                Graph.channel[2].Feed(-numLostThisSample);//red
+
+                numPacketsSent += numSentThisSample;
+                numPacketsReceived += numRecvThisSample;
+                numPacketsLost += numLostThisSample;
+            }
         }
+        
     }
 	void Update () {
-        if (!_mumbleClient.ReadyToConnect)
+
+        if (_mumbleClient == null || !_mumbleClient.ReadyToConnect)
             return;
         if (Input.GetKeyDown(KeyCode.S))
         {
             _mumbleClient.SendTextMessage("This is an example message from Unity");
             print("Sent mumble message");
+            
         }
-        if (Input.GetKeyDown(KeyCode.J))
-        {
-            print("Will attempt to join channel " + ChannelToJoin);
-            _mumbleClient.JoinChannel(ChannelToJoin);
-        }
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            print("Will join root");
-            _mumbleClient.JoinChannel("Root");
-        }
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            print("Will set our comment");
-            _mumbleClient.SetOurComment("Example Comment");
-        }
-        if (Input.GetKeyDown(KeyCode.B))
-        {
-            print("Will set our texture");
-            byte[] commentHash = new byte[] { 1, 2, 3, 4, 5, 6 };
-            _mumbleClient.SetOurTexture(commentHash);
-        }
+        //if (Input.GetKeyDown(KeyCode.J))
+        //{
+        //    print("Will attempt to join channel " + ChannelToJoin);
+        //    _mumbleClient.JoinChannel(ChannelToJoin);
+        //}
+        //if (Input.GetKeyDown(KeyCode.Escape))
+        //{
+        //    print("Will join root");
+        //    _mumbleClient.JoinChannel("Root");
+        //}
+        //if (Input.GetKeyDown(KeyCode.C))
+        //{
+        //    print("Will set our comment");
+        //    _mumbleClient.SetOurComment("Example Comment");
+        //}
+        //if (Input.GetKeyDown(KeyCode.B))
+        //{
+        //    print("Will set our texture");
+        //    byte[] commentHash = new byte[] { 1, 2, 3, 4, 5, 6 };
+        //    _mumbleClient.SetOurTexture(commentHash);
+        //}
 
         // You can use the up / down arrows to increase/decrease
         // the bandwidth used by the mumble mic

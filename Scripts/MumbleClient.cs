@@ -4,6 +4,7 @@ using MumbleProto;
 using Version = MumbleProto.Version;
 using UnityEngine;
 using System.Collections.Generic;
+using Assets.Recover.Scripts.Assembly_CSharp;
 
 namespace Mumble
 {
@@ -228,7 +229,7 @@ namespace Mumble
         {
             _mumbleMic = newMic;
             _mumbleMic.Initialize(this);
-            EncoderSampleRate = _mumbleMic.InitializeMic();
+            EncoderSampleRate = _mumbleMic.InitializeMic(UMConfigManager.GetInt(UMConfigManager.UMSetting.VOIP_MIC_INDEX));
 
             if (EncoderSampleRate == -1)
                 return;
@@ -456,6 +457,12 @@ namespace Mumble
                 return;
             }
             _tcpConnection.StartClient(username, password);
+
+            UMConfigManager.OnConfigChange.AddListener((x) =>
+            {
+                if(x.Key == UMConfigManager.UMSetting.VOIP_MIC_INDEX) //On Mic change
+                    this.AddMumbleMic(_mumbleMic);
+            });
         }
         internal void ConnectUdp()
         {

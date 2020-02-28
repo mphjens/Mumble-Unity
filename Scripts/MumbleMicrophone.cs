@@ -32,7 +32,7 @@ namespace Mumble
         public event OnMicDisconnected OnMicDisconnect;
 
         public bool SendAudioOnStart = true;
-        public int MicNumberToUse;
+        //public int MicNumberToUse;
         /// <summary>
         /// The minimum aplitude to recognize as voice data
         /// Only used if Mic is set to "Amplitude"
@@ -80,6 +80,10 @@ namespace Mumble
         public void Initialize(MumbleClient mumbleClient)
         {
             _mumbleClient = mumbleClient;
+            foreach (var device in Microphone.devices)
+            {
+                Debug.Log("Microphone device Name: " + device);
+            }
         }
 
         public void SetPositionalDataFunction(WritePositionalData writePositionalData)
@@ -91,7 +95,7 @@ namespace Mumble
         /// Find the microphone to use and return it's sample rate
         /// </summary>
         /// <returns>New Mic's sample rate</returns>
-        internal int InitializeMic()
+        internal int InitializeMic(int MicNumberToUse)
         {
             //Make sure the requested mic index exists
             if (Microphone.devices.Length <= MicNumberToUse)
